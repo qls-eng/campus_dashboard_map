@@ -1,6 +1,7 @@
-streamlit
-pandas
-plotly
-folium
-streamlit-folium
-requests
+# 固定版本，避免 Streamlit Cloud 每次部署装到不同版本导致行为漂移
+streamlit==1.66.0
+pandas==3.0.6
+plotly==7.1.0
+folium==0.20.0
+streamlit-folium==0.27.4
+requests==2.34.2
