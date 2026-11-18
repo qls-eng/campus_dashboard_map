@@ -144,11 +144,13 @@ if dark_mode:
     text_color = "#e0e0e0"
     card_bg = "#2a2a35"
     metric_text = "#ffffff"
+    weather_grad = "#1e3326"
 else:
     bg_color = "#f5f7fa"
     text_color = "#2c3e50"
     card_bg = "#ffffff"
     metric_text = "#1f77b4"
+    weather_grad = "#e3f2e6"
 
 st.markdown(f"""
 <style>
@@ -165,6 +167,27 @@ st.markdown(f"""
     div[data-testid="stMetricLabel"] > div {{ color: {text_color} !important; opacity: 0.8; }}
     div[data-testid="stMetricValue"] > div {{ color: {metric_text} !important; font-weight: bold; }}
     th {{ color: {text_color} !important; }}
+
+    /* 所有指标卡统一高度，避免文字长短导致大小不一 */
+    div[data-testid="stMetric"] {{
+        min-height: 136px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow: hidden;
+    }}
+
+    /* 天气卡：绿色强调 + 更大字号，做成整页最醒目的一块 */
+    .st-key-weather_cards div[data-testid="stMetric"] {{
+        min-height: 152px;
+        border-left: 5px solid #2e7d32;
+        background: linear-gradient(135deg, {card_bg} 0%, {weather_grad} 100%);
+    }}
+    .st-key-weather_cards div[data-testid="stMetricValue"] > div {{ font-size: 2.35rem !important; }}
+
+    /* 核心指标：字号收敛，降低视觉重量 */
+    .st-key-kpi_cards div[data-testid="stMetric"] {{ min-height: 136px; }}
+    .st-key-kpi_cards div[data-testid="stMetricValue"] > div {{ font-size: 1.5rem !important; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -179,15 +202,16 @@ def _render_weather_block():
     now_weather = weather_data["now"]
 
     st.subheader("🌤️ 天气概览")
-    w1, w2, w3, w4 = st.columns(4)
-    with w1:
-        st.metric(label="当前温度", value=f"{now_weather['temp']} ℃")
-    with w2:
-        st.metric(label="相对湿度", value=f"{now_weather['humidity']} %")
-    with w3:
-        st.metric(label="风速", value=f"{now_weather['windSpeed']} km/h")
-    with w4:
-        st.metric(label="天气状况", value=now_weather["text"])
+    with st.container(key="weather_cards"):
+        w1, w2, w3, w4 = st.columns(4)
+        with w1:
+            st.metric(label="当前温度", value=f"{now_weather['temp']} ℃")
+        with w2:
+            st.metric(label="相对湿度", value=f"{now_weather['humidity']} %")
+        with w3:
+            st.metric(label="风速", value=f"{now_weather['windSpeed']} km/h")
+        with w4:
+            st.metric(label="天气状况", value=now_weather["text"])
 
     # 数据来源标识：接口失败时明确告知，避免把演示数据当成实时数据
     if weather_data.get("status") != "success":
@@ -234,19 +258,23 @@ st.caption(
     f"（{len(flow_df)} 条记录，按建筑容量与校园作息规律生成）；天气为和风天气 API 真实数据"
 )
 
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.metric(
-        label="总人流量（人次）",
-        value=f"{kpi['total']:,}",
-        delta=None if kpi["growth"] is None else f"{kpi['growth']:+.1f}% 较前一日",
-    )
-with c2:
-    st.metric(label="平均使用率", value=f"{kpi['avg_rate']:.1f} %")
-with c3:
-    st.metric(label="人流峰值建筑", value=kpi["peak_name"], delta=f"{kpi['peak_flow']:,} 人次", delta_color="off")
-with c4:
-    st.metric(label="监测建筑数", value=f"{kpi['buildings']} 个")
+with st.container(key="kpi_cards"):
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric(
+            label="总人流量（人次）",
+            value=f"{kpi['total']:,}",
+            delta=None if kpi["growth"] is None else f"{kpi['growth']:+.1f}% 较前一日",
+        )
+    with c2:
+        st.metric(label="平均使用率", value=f"{kpi['avg_rate']:.1f} %")
+    with c3:
+        st.metric(
+            label="人流峰值建筑", value=kpi["peak_name"],
+            delta=f"{kpi['peak_flow']:,} 人次", delta_color="off",
+        )
+    with c4:
+        st.metric(label="监测建筑数", value=f"{kpi['buildings']} 个")
 
 st.divider()
 
