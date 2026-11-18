@@ -44,6 +44,12 @@ if "current_lat" not in st.session_state:
     st.session_state.current_lat = 0.0
 if "current_lng" not in st.session_state:
     st.session_state.current_lng = 0.0
+# 图表联动：点击类型柱状图后记录的类型（None 表示未联动）
+if "drill_type" not in st.session_state:
+    st.session_state.drill_type = None
+# 记录上一次观察到的柱状图选区，用于判断"用户是否刚点了新的一下"
+if "drill_last_points" not in st.session_state:
+    st.session_state.drill_last_points = None
 
 
 @st.cache_data(show_spinner=False)
@@ -56,6 +62,26 @@ def cleaning_report():
 # 2. 数据加载
 flow_df = load_clean()
 all_types = sorted(flow_df["类型"].unique())
+
+
+def _sync_drill_type(event) -> None:
+    """把类型柱状图的点选结果同步到 session_state（进阶2：图表联动）。
+
+    点中某一根柱 → 记录该类型；点中空白 / 取消选中 → 清空。
+    只在"选区相较于上一轮发生变化"时同步，避免每轮 rerun 都把
+    drill_type 覆盖回去（否则"取消联动"按钮会失效）。
+    """
+    try:
+        points = (event or {}).get("selection", {}).get("points", [])
+    except (AttributeError, TypeError):
+        return
+    picked = points[0].get("x") if points else None
+    picked = picked if isinstance(picked, str) and picked in all_types else None
+    if picked == st.session_state.get("drill_last_points"):
+        return
+    st.session_state.drill_last_points = picked
+    st.session_state.drill_type = picked
+    st.rerun()
 
 # 3. 侧边栏
 with st.sidebar:
@@ -70,7 +96,7 @@ with st.sidebar:
     st.header("🔎 数据筛选")
     picked_types = st.multiselect(
         "建筑类型", all_types, default=all_types,
-        help="筛选后地图、柱状图、饼图与明细表同步更新",
+        help="筛选后地图、柱状图、饼图与明细表同步更新；另外可在图表区点击类型柱做进一步联动",
     )
     flow_min = int(flow_df["人流量"].min())
     flow_max = int(flow_df["人流量"].max())
@@ -293,7 +319,19 @@ filtered_df = flow_df[flow_df["类型"].isin(picked_types)] if picked_types else
 filtered_df = filtered_df[
     (filtered_df["人流量"] >= flow_range[0]) & (filtered_df["人流量"] <= flow_range[1])
 ]
-latest_df = latest_flow(filtered_df) if len(filtered_df) else filtered_df
+
+# 图表联动：drill_type 来自上一轮点击的柱状图分类，地图与其余图表按它二次过滤
+drill_type = st.session_state.get("drill_type")
+drill_df = filtered_df
+if drill_type:
+    if drill_type in set(filtered_df["类型"]):
+        drill_df = filtered_df[filtered_df["类型"] == drill_type]
+    else:
+        # 被侧边栏筛掉或区间过滤后为空时，自动解除联动
+        st.session_state.drill_type = None
+        drill_type = None
+
+latest_df = latest_flow(drill_df) if len(drill_df) else drill_df
 buildings_df = with_coords(latest_df) if len(latest_df) else None
 
 fig_map = render_map(show_bus, show_shuttle, show_sightseeing, is_dark=dark_mode, buildings=buildings_df)
@@ -323,36 +361,59 @@ st.subheader("📊 数据分析图表")
 if len(filtered_df) == 0:
     st.info("当前筛选条件下没有数据，请调整侧边栏的「建筑类型」或「人流量范围」。")
 else:
+    if drill_type:
+        col_d1, col_d2 = st.columns([4, 1])
+        with col_d1:
+            st.info(
+                f"🔗 已联动到「{drill_type}」：地图、排行、饼图、明细表与仪表盘均只显示该类型建筑。"
+                "再次点击同一根柱、点击图表空白处，或点右侧按钮即可取消。"
+            )
+        with col_d2:
+            if st.button("取消联动", key="clear_drill", width="stretch"):
+                st.session_state.drill_type = None
+                st.rerun()
+
     row1_col1, row1_col2 = st.columns(2)
     with row1_col1:
         st.markdown("##### 各类型人流量对比")
-        st.plotly_chart(render_type_bar(filtered_df, is_dark=dark_mode), width="stretch")
+        st.caption("点击某一根柱可按类型联动其余图表；点击空白处取消。")
+        event = st.plotly_chart(
+            render_type_bar(filtered_df, is_dark=dark_mode),
+            width="stretch",
+            key="type_bar_select",
+            on_select="rerun",
+            selection_mode="points",
+        )
+        _sync_drill_type(event)
     with row1_col2:
         st.markdown("##### 建筑人流量排行")
-        st.plotly_chart(render_rank_bar(filtered_df, is_dark=dark_mode), width="stretch")
+        st.plotly_chart(render_rank_bar(drill_df, is_dark=dark_mode), width="stretch")
 
     row2_col1, row2_col2 = st.columns(2)
     with row2_col1:
         st.markdown("##### 校园人群活动结构")
-        st.plotly_chart(render_pie_chart(filtered_df, is_dark=dark_mode), width="stretch")
+        st.plotly_chart(render_pie_chart(drill_df, is_dark=dark_mode), width="stretch")
     with row2_col2:
         st.markdown("##### 校园建筑明细")
-        st.dataframe(render_table(filtered_df), width="stretch", height=350, hide_index=True)
+        st.dataframe(render_table(drill_df), width="stretch", height=350, hide_index=True)
 
     row3_col1, row3_col2 = st.columns(2)
     with row3_col1:
         st.markdown("##### 平均使用率仪表盘")
-        st.plotly_chart(render_gauge(filtered_df, is_dark=dark_mode), width="stretch")
+        st.plotly_chart(render_gauge(drill_df, is_dark=dark_mode), width="stretch")
     with row3_col2:
         st.markdown("##### 未来24小时温度与降水趋势")
         st.plotly_chart(render_line_chart(is_dark=dark_mode), width="stretch")
 
     st.markdown("##### 校园分时段人流曲线（早 / 午 / 晚高峰）")
     st.plotly_chart(render_hourly_line(is_dark=dark_mode), width="stretch")
-    st.caption("分时数据由当日总量按校园作息分布生成，曲线各小时合计等于当日总人流量。")
+    st.caption(
+        "分时数据由当日总量按校园作息分布生成，曲线各小时合计等于当日总人流量；"
+        "该曲线为全校园口径，不随类型联动变化。"
+    )
 
     # 扩展：低使用率预警
-    latest_warn = latest_flow(filtered_df)
+    latest_warn = latest_flow(drill_df)
     low_use = latest_warn[latest_warn["使用率(%)"] < 40]
     if len(low_use) > 0:
         names = "、".join(low_use["建筑名称"].tolist())
