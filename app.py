@@ -11,6 +11,7 @@ from streamlit_folium import st_folium
 from charts.analytics import (
     latest_flow,
     render_gauge,
+    render_hourly_line,
     render_line_chart,
     render_pie_chart,
     render_rank_bar,
@@ -228,7 +229,10 @@ st.divider()
 # 7. 数据概览区（核心指标卡片）
 kpi = kpi_snapshot(flow_df)
 st.subheader("📌 核心指标")
-st.caption(f"统计日期：{kpi['date']}　|　数据来源：清洗后的人流模拟数据集（{len(flow_df)} 条记录）")
+st.caption(
+    f"统计日期：{kpi['date']}　|　数据来源：清洗后的人流模拟数据集"
+    f"（{len(flow_df)} 条记录，按建筑容量与校园作息规律生成）；天气为和风天气 API 真实数据"
+)
 
 c1, c2, c3, c4 = st.columns(4)
 with c1:
@@ -314,6 +318,10 @@ else:
     with row3_col2:
         st.markdown("##### 未来24小时温度与降水趋势")
         st.plotly_chart(render_line_chart(is_dark=dark_mode), width="stretch")
+
+    st.markdown("##### 校园分时段人流曲线（早 / 午 / 晚高峰）")
+    st.plotly_chart(render_hourly_line(is_dark=dark_mode), width="stretch")
+    st.caption("分时数据由当日总量按校园作息分布生成，曲线各小时合计等于当日总人流量。")
 
     # 扩展：低使用率预警
     latest_warn = latest_flow(filtered_df)

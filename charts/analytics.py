@@ -8,6 +8,7 @@
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from pathlib import Path
 from plotly.subplots import make_subplots
 
 from config import TYPE_COLORS
@@ -147,3 +148,24 @@ def render_gauge(df: pd.DataFrame = None, is_dark: bool = False):
         title={"text": "平均使用率"},
     ))
     return _apply_layout(fig, is_dark)
+
+
+HOURLY_PATH = Path(__file__).resolve().parents[1] / "data" / "campus_flow_hourly.csv"
+
+
+def render_hourly_line(is_dark: bool = False):
+    """分时段人流曲线：全校园按小时汇总，两日对比（早/午/晚高峰）。"""
+    hourly = pd.read_csv(HOURLY_PATH, encoding="utf-8-sig")
+    fig = px.line(
+        hourly, x="小时", y="人流量", color="日期", markers=True,
+        color_discrete_sequence=["#1f77b4", "#d62728"],
+    )
+    for trace in fig.data:
+        trace.update(mode="lines+markers", line=dict(width=2.4), marker=dict(size=7))
+    fig.update_layout(
+        xaxis=dict(dtick=2, title="时刻（时）", range=[-0.5, 23.5]),
+        yaxis_title="人流量（人次）",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        hovermode="x unified",
+    )
+    return _apply_layout(fig, is_dark, height=330)
