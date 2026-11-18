@@ -170,36 +170,23 @@ st.markdown(f"""
 # 5. 标题
 st.title("🏫 校园地图与天气数据看板")
 st.caption("📅 数据实时更新 | 桂林理工大学雁山校区")
-st.divider()
 
-# 6. 数据概览区（核心指标卡片）
-kpi = kpi_snapshot(flow_df)
-st.subheader("📌 核心指标")
-st.caption(f"统计日期：{kpi['date']}　|　数据来源：清洗后的人流模拟数据集（{len(flow_df)} 条记录）")
-
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.metric(
-        label="总人流量（人次）",
-        value=f"{kpi['total']:,}",
-        delta=None if kpi["growth"] is None else f"{kpi['growth']:+.1f}% 较前一日",
-    )
-with c2:
-    st.metric(label="平均使用率", value=f"{kpi['avg_rate']:.1f} %")
-with c3:
-    st.metric(label="人流峰值建筑", value=kpi["peak_name"], delta=f"{kpi['peak_flow']:,} 人次", delta_color="off")
-with c4:
-    st.metric(label="监测建筑数", value=f"{kpi['buildings']} 个")
-
-# 7. 天气概览（一行文字，避免与核心指标卡重复）
+# 6. 天气概览（4 张指标卡，紧跟标题，实时数据放最显眼位置）
 def _render_weather_block():
-    """天气展示 + 数据来源标识 + 阈值预警。"""
+    """天气展示（4 张指标卡）+ 数据来源标识 + 阈值预警。"""
     weather_data = fetch_weather_data()
     now_weather = weather_data["now"]
-    st.markdown(
-        f"🌤️ **实时天气**：当前温度 `{now_weather['temp']} ℃` ｜ 相对湿度 `{now_weather['humidity']} %` "
-        f"｜ 风速 `{now_weather['windSpeed']} km/h` ｜ 天气状况 `{now_weather['text']}`"
-    )
+
+    st.subheader("🌤️ 天气概览")
+    w1, w2, w3, w4 = st.columns(4)
+    with w1:
+        st.metric(label="当前温度", value=f"{now_weather['temp']} ℃")
+    with w2:
+        st.metric(label="相对湿度", value=f"{now_weather['humidity']} %")
+    with w3:
+        st.metric(label="风速", value=f"{now_weather['windSpeed']} km/h")
+    with w4:
+        st.metric(label="天气状况", value=now_weather["text"])
 
     # 数据来源标识：接口失败时明确告知，避免把演示数据当成实时数据
     if weather_data.get("status") != "success":
@@ -208,6 +195,8 @@ def _render_weather_block():
             "原因：未读取到和风天气 API 密钥（Streamlit Secrets 缺少 QWEATHER_KEY，或密钥失效）。"
             "配置后刷新页面即可显示真实数据。"
         )
+    else:
+        st.caption("🛰️ 数据来源：和风天气 API 实时数据（缓存 5 分钟，可开启侧边栏定时刷新）")
 
     # 扩展：天气阈值预警
     try:
@@ -233,6 +222,27 @@ if auto_refresh:
     _render_weather_block_auto()
 else:
     _render_weather_block()
+
+st.divider()
+
+# 7. 数据概览区（核心指标卡片）
+kpi = kpi_snapshot(flow_df)
+st.subheader("📌 核心指标")
+st.caption(f"统计日期：{kpi['date']}　|　数据来源：清洗后的人流模拟数据集（{len(flow_df)} 条记录）")
+
+c1, c2, c3, c4 = st.columns(4)
+with c1:
+    st.metric(
+        label="总人流量（人次）",
+        value=f"{kpi['total']:,}",
+        delta=None if kpi["growth"] is None else f"{kpi['growth']:+.1f}% 较前一日",
+    )
+with c2:
+    st.metric(label="平均使用率", value=f"{kpi['avg_rate']:.1f} %")
+with c3:
+    st.metric(label="人流峰值建筑", value=kpi["peak_name"], delta=f"{kpi['peak_flow']:,} 人次", delta_color="off")
+with c4:
+    st.metric(label="监测建筑数", value=f"{kpi['buildings']} 个")
 
 st.divider()
 
