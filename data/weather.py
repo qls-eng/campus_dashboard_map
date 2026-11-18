@@ -1,6 +1,7 @@
 # data/weather.py
 import requests
 import re
+import streamlit as st
 from config import QWEATHER_KEY, QWEATHER_HOST, QWEATHER_LOCATION
 
 
@@ -11,7 +12,9 @@ def clean_html_tags(text):
     return text
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def fetch_weather_data():
+    """获取天气数据（缓存 5 分钟，避免每次页面刷新都重复请求接口）。"""
     try:
         now_url = f"https://{QWEATHER_HOST}/v7/weather/now?location={QWEATHER_LOCATION}&key={QWEATHER_KEY}"
         now_res = requests.get(now_url, timeout=5).json()

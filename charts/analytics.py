@@ -124,3 +124,26 @@ def render_table(df: pd.DataFrame = None):
         flow.sort_values("人流量", ascending=False)[["建筑名称", "类型", "人流量", "使用率(%)"]]
         .reset_index(drop=True)
     )
+
+
+def render_gauge(df: pd.DataFrame = None, is_dark: bool = False):
+    """平均使用率仪表盘（扩展：多维度分析）。"""
+    flow = latest_flow(df)
+    avg_use = round(float(flow["使用率(%)"].mean()), 1) if len(flow) else 0.0
+
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=avg_use,
+        number={"suffix": "%"},
+        gauge={
+            "axis": {"range": [0, 100]},
+            "bar": {"color": "#1f77b4"},
+            "steps": [
+                {"range": [0, 40], "color": "#fdecea"},
+                {"range": [40, 70], "color": "#fff4e5"},
+                {"range": [70, 100], "color": "#e8f5e9"},
+            ],
+        },
+        title={"text": "平均使用率"},
+    ))
+    return _apply_layout(fig, is_dark)
