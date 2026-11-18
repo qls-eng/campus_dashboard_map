@@ -2,7 +2,13 @@
 import folium
 from data.mock import get_bus_stops, get_bus_route_from_amap, get_sightseeing_stops, get_staff_shuttle
 
-def render_map(show_bus=True, show_shuttle=True, show_sightseeing=True, is_dark=False):
+
+def render_map(show_bus=True, show_shuttle=True, show_sightseeing=True, is_dark=False, buildings=None):
+    """渲染校园地图。
+
+    参数 buildings 传入带经纬度的建筑数据（含 建筑名称 / 类型 / 人流量 / 使用率(%)），
+    不为空时按人流量大小绘制圆形点位，使地图与图表使用同一份清洗后数据。
+    """
     df_bus = get_bus_stops()
     df_sightseeing = get_sightseeing_stops()
     df_staff = get_staff_shuttle()
@@ -11,6 +17,37 @@ def render_map(show_bus=True, show_shuttle=True, show_sightseeing=True, is_dark=
     tiles_url = "https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
 
     m = folium.Map(location=[center_lat, center_lng], zoom_start=15, tiles=tiles_url, attr="高德地图")
+
+    # ==========================================
+    # 0. 建筑人流量点位（圆点大小随人流量变化）
+    # ==========================================
+    if buildings is not None and len(buildings) > 0:
+        import math
+
+        max_flow = max(int(buildings["人流量"].max()), 1)
+        for _, row in buildings.iterrows():
+            # 半径按人流量的平方根缩放，避免大值把地图糊住
+            radius = 6 + 14 * math.sqrt(int(row["人流量"]) / max_flow)
+            color = "#e45756" if row["使用率(%)"] >= 85 else ("#f2a541" if row["使用率(%)"] >= 60 else "#4c78a8")
+            popup_html = f"""
+            <div style="font-family: 'Microsoft YaHei', sans-serif; width: 200px;">
+                <h4 style="margin: 0 0 5px 0;">{row['建筑名称']}</h4>
+                <p style="margin: 0; font-size: 12px;">类型：{row['类型']}</p>
+                <p style="margin: 0; font-size: 12px;">人流量：{int(row['人流量'])} 人次</p>
+                <p style="margin: 0; font-size: 12px;">使用率：{row['使用率(%)']}%</p>
+            </div>
+            """
+            folium.CircleMarker(
+                location=[row["纬度"], row["经度"]],
+                radius=radius,
+                color=color,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.55,
+                weight=1,
+                tooltip=f"{row['建筑名称']}：{int(row['人流量'])} 人次",
+                popup=folium.Popup(popup_html, max_width=250),
+            ).add_to(m)
 
     # ==========================================
     # 1. 绘制 5路公交（手工平滑拐点，贴合真实站点、无绕路岔路）
