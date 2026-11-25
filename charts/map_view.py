@@ -106,71 +106,40 @@ def render_map(show_bus=True, show_shuttle=True, show_sightseeing=True, is_dark=
     # ==========================================
     if show_shuttle:
         for _, row in df_staff.iterrows():
-            kind = row.get("乘车对象", "教职工")
-            if kind == "学生":
-                # 学生候车点：南门口，现场有余位即可上车，无官方固定班次
-                popup_html = f"""
-                <div style="font-family: 'Microsoft YaHei', sans-serif; width: 250px;">
-                    <h4 style="color: #9467bd; margin: 0 0 6px 0;">🚌 {row['名称']}（通勤车）</h4>
-                    <p style="margin: 0 0 6px 0; font-size: 12px;">运行区间：屏风校区 ↔ 雁山校区</p>
-                    <div style="background: #f3f0fa; border-radius: 6px; padding: 8px;">
-                        <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; color:#5b3fa8;">🎓 学生候车说明</p>
-                        <p style="margin: 0; font-size: 11px; line-height: 1.6;">
-                            位置：南门口（校门内侧）<br>
-                            乘车方式：有余位即可上车，无固定班次
-                        </p>
-                    </div>
-                    <p style="margin: 6px 0 0 0; font-size: 11px; color:#888;">ℹ️「无固定班次」为现场观察，非学校官方规定；教职工班车时刻见教四楼 / 行知楼发车点。</p>
+            # 班次多时每 3 个一组换行，避免在 250px 弹窗里挤成一行
+            times = list(row["发车时间"])
+            times_html = "<br>".join("　".join(times[i:i + 3]) for i in range(0, len(times), 3))
+            popup_html = f"""
+            <div style="font-family: 'Microsoft YaHei', sans-serif; width: 250px;">
+                <h4 style="color: #9467bd; margin: 0 0 6px 0;">🚌 {row['名称']}（通勤车）</h4>
+                <p style="margin: 0 0 6px 0; font-size: 12px;">运行区间：屏风校区 ↔ 雁山校区</p>
+                <div style="background: #f3f0fa; border-radius: 6px; padding: 8px;">
+                    <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; color:#5b3fa8;">📅 雁山 → 屏风（本点发车时间）</p>
+                    <p style="margin: 0; font-size: 11px; line-height: 1.6;">{times_html}</p>
                 </div>
-                """
-                # 紫色虚线空心圆 + "学生"字样，并置顶显示，避免被公交/观光车图标压住
-                folium.Marker(
-                    location=[row["纬度"], row["经度"]],
-                    zIndexOffset=1000,
-                    icon=folium.DivIcon(
-                        html='<div style="width:40px;height:40px;line-height:34px;text-align:center;'
-                             'font-size:12px;font-weight:bold;background:rgba(255,255,255,.95);color:#5b3fa8;'
-                             'border:3px dashed #7b3ff2;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.25);">学生</div>',
-                        icon_size=(40, 40),
-                        icon_anchor=(20, 20),
-                    ),
-                    tooltip="点击查看：南门口学生候车点说明",
-                    popup=folium.Popup(popup_html, max_width=300)
-                ).add_to(m)
-            else:
-                popup_html = f"""
-                <div style="font-family: 'Microsoft YaHei', sans-serif; width: 250px;">
-                    <h4 style="color: #9467bd; margin: 0 0 6px 0;">🚌 {row['名称']}（通勤车）</h4>
-                    <p style="margin: 0 0 6px 0; font-size: 12px;">运行区间：屏风校区 ↔ 雁山校区</p>
-                    <div style="background: #f3f0fa; border-radius: 6px; padding: 8px;">
-                        <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; color:#5b3fa8;">📅 雁山 → 屏风（发车时间）</p>
-                        <p style="margin: 0; font-size: 11px; line-height: 1.6;">
-                            教四楼：10:20　12:15<br>　　　　16:20　17:10　18:20　22:00<br>
-                            行知楼：17:20
-                        </p>
-                    </div>
-                    <div style="background: #f3f0fa; border-radius: 6px; padding: 8px; margin-top:6px;">
-                        <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; color:#5b3fa8;">📅 屏风 → 雁山（发车时间）</p>
-                        <p style="margin: 0; font-size: 11px; line-height: 1.6;">
-                            东城小区：7:20　8:00<br>
-                            国际教育园区1号楼：7:20　8:05　9:15<br>　　　　　　　　13:20　15:05　20:30
-                        </p>
-                    </div>
-                    <p style="margin: 6px 0 0 0; font-size: 11px; color:#888;">💳 教职工刷卡乘车，点对点直达，约 40 分钟</p>
+                <div style="background: #f3f0fa; border-radius: 6px; padding: 8px; margin-top:6px;">
+                    <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; color:#5b3fa8;">📅 屏风 → 雁山（发车时间）</p>
+                    <p style="margin: 0; font-size: 11px; line-height: 1.6;">
+                        东城小区：7:20　8:00<br>
+                        国际教育园区1号楼：7:20　8:05　9:15<br>　　　　　　　　13:20　15:05　20:30
+                    </p>
                 </div>
-                """
-                # 大号紫色自定义图标，确保视觉上不被观光车绿标盖住
-                folium.Marker(
-                    location=[row["纬度"], row["经度"]],
-                    icon=folium.DivIcon(
-                        html='<div style="width:44px;height:44px;line-height:44px;text-align:center;'
-                             'font-size:26px;background:#7b3ff2;color:#fff;border-radius:50%;'
-                             'border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);">🚌</div>',
-                        icon_size=(44, 44),
-                        icon_anchor=(22, 44),
-                    ),
-                    tooltip=f"点击查看：{row['名称']}通勤车时刻表",
-                    popup=folium.Popup(popup_html, max_width=300)
-                ).add_to(m)
+                <p style="margin: 6px 0 0 0; font-size: 11px; color:#888;">💳 教职工刷卡乘车，点对点直达，约 40 分钟</p>
+            </div>
+            """
+            # 大号紫色自定义图标，置顶显示，确保视觉上不被观光车绿标、公交站图标盖住
+            folium.Marker(
+                location=[row["纬度"], row["经度"]],
+                zIndexOffset=800,
+                icon=folium.DivIcon(
+                    html='<div style="width:44px;height:44px;line-height:44px;text-align:center;'
+                         'font-size:26px;background:#7b3ff2;color:#fff;border-radius:50%;'
+                         'border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);">🚌</div>',
+                    icon_size=(44, 44),
+                    icon_anchor=(22, 44),
+                ),
+                tooltip=f"点击查看：{row['名称']}通勤车时刻表",
+                popup=folium.Popup(popup_html, max_width=300)
+            ).add_to(m)
 
     return m
