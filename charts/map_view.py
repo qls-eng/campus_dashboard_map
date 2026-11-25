@@ -102,7 +102,7 @@ def render_map(show_bus=True, show_shuttle=True, show_sightseeing=True, is_dark=
             ).add_to(m)
 
     # ==========================================
-    # 3. 绘制教职工通勤车（最后绘制=最上层，不被观光车遮挡）
+    # 3. 绘制通勤车候车点（最后绘制=最上层，不被观光车遮挡）
     # ==========================================
     if show_shuttle:
         for _, row in df_staff.iterrows():
@@ -124,7 +124,7 @@ def render_map(show_bus=True, show_shuttle=True, show_sightseeing=True, is_dark=
                         国际教育园区1号楼：7:20　8:05　9:15<br>　　　　　　　　13:20　15:05　20:30
                     </p>
                 </div>
-                <p style="margin: 6px 0 0 0; font-size: 11px; color:#888;">💳 教职工刷卡乘车，点对点直达，约 40 分钟</p>
+                <p style="margin: 6px 0 0 0; font-size: 11px; color:#888;">🚌 通勤班车，刷卡乘车，点对点直达，约 40 分钟</p>
             </div>
             """
             # 大号紫色自定义图标，置顶显示，确保视觉上不被观光车绿标、公交站图标盖住
