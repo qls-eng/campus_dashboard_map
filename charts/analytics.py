@@ -105,15 +105,28 @@ def render_line_chart(is_dark: bool = False):
 
 
 def render_pie_chart(df: pd.DataFrame = None, is_dark: bool = False):
-    """占比结构饼图（环形）：各建筑类型的人流占比。"""
+    """占比结构饼图（环形）：各建筑类型的人流占比。
+
+    环下沿几个小扇区（服务、办公等）的外侧标签会互相压字，
+    因此只给占比 ≥8% 的类型画外侧标签，小扇区的数值放在
+    hover 提示与右侧明细表里，保证图形本身不被文字糊住。
+    """
     flow = latest_flow(df)
     by_type = flow.groupby("类型", as_index=False)["人流量"].sum()
+    total = by_type["人流量"].sum()
+    shares = by_type["人流量"] / total if total else by_type["人流量"] * 0.0
 
     fig = px.pie(
         by_type, names="类型", values="人流量", hole=0.45,
         color="类型", color_discrete_map=TYPE_COLORS,
     )
-    fig.update_traces(textposition="outside", textinfo="percent+label")
+    fig.update_traces(
+        text=[f"{t} {p:.1%}" if p >= 0.08 else "" for t, p in zip(by_type["类型"], shares)],
+        textinfo="text",
+        textposition="outside",
+        textfont=dict(size=11),
+        hovertemplate="%{label}：%{value:,} 人次（%{percent:.1%}）<extra></extra>",
+    )
     fig.update_layout(showlegend=False)
     return _apply_layout(fig, is_dark)
 
